@@ -67,15 +67,6 @@ getUsbDeviceInfos() {
   echo Device UUID : $CARD_UUID
 }
 
-assignUUID() {
-  if [ ! -z $CARD_UUID ]; then
-    read -p "CARD ID is $CARD_UUID ok?" key
-  else
-    CARD_UUID=$(hexdump -n 4 -e '"%X"' /dev/random);
-    read -p "generated CARD ID is $CARD_UUID ok?" key
-  fi
-}
-
 continueOrExit() {
   while true; do
     read -p "Do you want to continue (Y) or exit (N) ? " continueResponse
