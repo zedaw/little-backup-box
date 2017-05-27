@@ -7,7 +7,7 @@
 # Specify devices and their mount points
 STORAGE_DEV=$(mount | grep backupdisk | awk '{print $1}' | cut -d"/" -f3)
 STORAGE_MOUNT_POINT="/media/backupdisk"
-#CARD_MOUNT_POINT="/media/card"
+CARD_MOUNT_POINT="/media/card"
 
 checkBackupDiskMounted() {
   # Set the ACT LED to heartbeat
@@ -67,6 +67,26 @@ getUsbDeviceInfos() {
   echo Device UUID : $CARD_UUID
 }
 
+assignUUID() {
+  if [ ! -z $CARD_UUID ]; then
+    read -p "CARD ID is $CARD_UUID ok?" key
+  else
+    CARD_UUID=$(hexdump -n 4 -e '"%X"' /dev/random);
+    read -p "generated CARD ID is $CARD_UUID ok?" key
+  fi
+}
+
+continueOrExit() {
+  while true; do
+    read -p "Do you want to continue (Y) or exit (N) ? " continueResponse
+    if [ "Y" == "$continueResponse" -o "y" == "$continueResponse" ]; then
+      break;
+    else
+      exit 0;
+    fi
+  done
+}
+
 mountUsbDisk() {
   # Set the ACT LED to heartbeat
   sudo sh -c "echo heartbeat > /sys/class/leds/led0/trigger"
@@ -98,6 +118,18 @@ mountCard() {
 
   # # Set the ACT LED to blink at 500ms to indicate that the card has been mounted
   sudo sh -c "echo 500 > /sys/class/leds/led0/delay_on"
+
+  if [ -z $CARD_UUID ]; then
+    # Create the CARD_ID file containing a random 8-digit identifier if doesn't exist
+    if [ ! -f $CARD_MOUNT_POINT/CARD_ID ]; then
+      CARD_UUID=$(hexdump -n 4 -e '"%X"' /dev/random);
+      echo $CARD_UUID > $CARD_MOUNT_POINT/CARD_ID
+    fi
+    # Read the 8-digit identifier number from the CARD_ID file on the card
+    # and use it as a directory name in the backup path
+    read -r CARD_UUID < $CARD_MOUNT_POINT/CARD_ID
+  fi
+
   BACKUP_PATH=$STORAGE_MOUNT_POINT/backup/card/"$CARD_UUID"
 }
 
@@ -123,8 +155,11 @@ echo "---------------------------------------------------------"
 echo "USB Card found"
 echo "---------------------------------------------------------"
 getUsbDeviceInfos
-echo "---------------------------------------------------------"
 mountCard
+echo "---------------------------------------------------------"
+echo "Backup path = $BACKUP_PATH"
+echo "---------------------------------------------------------"
+continueOrExit
 backup
 unmountCard
 
